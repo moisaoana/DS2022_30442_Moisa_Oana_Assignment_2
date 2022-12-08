@@ -1,0 +1,97 @@
+version: '3'
+
+services:
+
+  mysql-demo-integration:
+    image: mysql
+    build:
+      context: ./
+      dockerfile: ./mysql/Dockerfile
+    container_name: mysql-demo-integration
+    restart: always
+    volumes:
+      - ./mysql/setup.sql:/docker-entrypoint-initdb.d/1.sql
+      - ./mysql/ds-mysql-initial-setup.sql:/docker-entrypoint-initdb.d/2.sql
+      - mysql-demo-integration:/var/lib/mysql
+    ports:
+      - 3307:3306
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+      timeout: 10s
+    environment:
+      - MYSQL_ROOT_PASSWORD=htoh
+    networks:
+      assignment1-network:
+         ipv4_address: 172.16.0.52
+    
+  rabbitmq-integration:
+    image: rabbitmq:3-management
+    container_name: rabbitmq-integration
+    environment:
+      - RABBITMQ_ERLANG_COOKIE=SWQOKODSQALRPCLNMEQG
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_Pass=guest
+      - RABBITMQ_DEFAULT_VHOST=/
+    ports:
+      - 5672:5672
+      - 15672:15672
+    networks:
+       assignment1-network:
+         ipv4_address: 172.16.0.55      
+
+  spring-demo-integration:
+    image: spring-demo-integration
+    build:
+      context: ./
+      dockerfile: ./spring-demo/Dockerfile
+    container_name: spring-demo-integration
+    restart: always
+    volumes:
+     - "spring-demo-integration:/spring-demo/war"
+    environment:
+      - DB_IP=172.16.0.52
+      - DB_PORT=3306
+      - DB_USER=htoh
+      - DB_PASSWORD=htoh
+      - DB_DBNAME=city_db
+    ports:
+      - 8080:8080
+    depends_on:
+      mysql-demo-integration:
+         condition: service_healthy
+      rabbitmq-integration:
+         condition: service_started
+    networks:
+      assignment1-network:
+         ipv4_address: 172.16.0.53
+    
+  angular-integration: 
+    image: angular-integration
+    build:
+      context: ./
+      dockerfile: ./ds1-frontend/Dockerfile
+    container_name: angular-integration
+    restart: always
+    ports:
+      - 4200:80
+    networks:
+      assignment1-network:
+         ipv4_address: 172.16.0.54
+
+volumes:
+  spring-demo-integration:
+    driver:
+      local
+  mysql-demo-integration:
+    driver:
+      local
+  angular-integration:
+    driver:
+      local
+
+networks:
+  assignment1-network:
+    external: true
